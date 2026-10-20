@@ -12,14 +12,23 @@ class studentsController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $students = LaravelStudent::orderBy('id', 'desc')->paginate(10);
-        
+        $query = LaravelStudent::with('course');
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->input('search') . '%');
+        }
+
+        if ($request->filled('course')) {
+            $query->where('course_id', $request->input('course'));
+        }
+
+        $students = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
         $count = $students->total();
-        $name = 'Ma Ma';
-        
-        return view('students.index', compact('students', 'count', 'name'));
+        $courses = Courses::orderBy('course_name')->get();
+
+        return view('students.index', compact('students', 'count', 'courses'));
     }
 
     /**
@@ -103,64 +112,138 @@ class studentsController extends Controller
 
     public function exportCSV()
     {
-        $filename = 'students.csv';
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ];
+        $students = LaravelStudent::with('course')->orderBy('id')->get();
 
-        return response()->stream(function () {
+        return response()->streamDownload(function () use ($students) {
             $out = fopen('php://output', 'w');
-            
-            // CSV Header ထည့်ခြင်း
-            fputcsv($out, ['ID', 'Student Code', 'Name', 'Email', 'Phone', 'Gender', 'Course_ID']);
 
-            LaravelStudent::orderBy('id')->chunk(500, function ($students) use ($out) {
-                foreach ($students as $student) {
-                    fputcsv($out, [
-                        $student->id,
-                        $student->student_code,
-                        $student->name,
-                        $student->email,
-                        $student->phone,
-                        $student->gender,
-                        $student->course_id
-                    ]);
-                }
-            });
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['student_code', 'name', 'email', 'phone', 'gender', 'course']);
+
+            foreach ($students as $student) {
+                fputcsv($out, [
+                    $student->student_code,
+                    $student->name,
+                    $student->email,
+                    $student->phone,
+                    $student->gender,
+                    $student->course?->course_name,
+                ]);
+            }
 
             fclose($out);
-        }, 200, $headers);
+        }, 'students-' . now()->format('Y-m-d-His') . '.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
     }
+
     public function importCSV(Request $request)
     {
         $request->validate([
-            'csv_file' => 'required|file|mimes:csv,txt',
+            'csv_file' => ['required', 'file', 'extensions:csv,txt', 'max:2048'],
         ]);
 
-        $file = $request->file('csv_file');
-        $path = $file->getRealPath();
-        $data = array_map('str_getcsv', file($path));
+        $handle = fopen($request->file('csv_file')->getRealPath(), 'r');
 
-        // CSV Header ကို ဖယ်ရှားခြင်း
-        $header = array_shift($data);
+        if ($handle === false) {
+            return back()->with('error', 'Unable to read the uploaded file.');
+        }
 
-        foreach ($data as $row) {
-            if (count($row) === count($header)) {
-                $studentData = array_combine($header, $row);
-                LaravelStudent::updateOrCreate(
-                    ['student_code' => $studentData['student_code']],
-                    [
-                        'name'      => $studentData['name'],
-                        'email'     => $studentData['email'],
-                        'phone'     => $studentData['phone'],
-                        'gender'    => $studentData['gender'],
-                        'course_id' => $studentData['course_id'],
-                    ]
-                );
+        $header = fgetcsv($handle);
+
+        if ($header === false) {
+            fclose($handle);
+
+            return back()->with('error', 'The uploaded CSV file is empty.');
+        }
+
+        $header = array_map(function ($column) {
+            return strtolower(trim(str_replace("\xEF\xBB\xBF", '', (string) $column)));
+        }, $header);
+
+        $courses = Courses::all();
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errors = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn ($value) => trim((string) $value) !== '')) === 0) {
+                continue;
+            }
+
+            $row = array_pad(array_slice($row, 0, count($header)), count($header), null);
+            $record = array_combine($header, $row);
+
+            $studentCode = trim((string) ($record['student_code'] ?? ''));
+            $name = trim((string) ($record['name'] ?? ''));
+            $email = trim((string) ($record['email'] ?? ''));
+            $phone = trim((string) ($record['phone'] ?? ''));
+            $gender = ucfirst(strtolower(trim((string) ($record['gender'] ?? ''))));
+            $courseValue = trim((string) ($record['course'] ?? $record['course_name'] ?? $record['course_id'] ?? ''));
+
+            if ($studentCode === '' || $name === '' || $email === '') {
+                $skipped++;
+                $errors[] = "Row {$rowNumber}: student_code, name and email are required.";
+                continue;
+            }
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $skipped++;
+                $errors[] = "Row {$rowNumber}: '{$email}' is not a valid email address.";
+                continue;
+            }
+
+            if (! in_array($gender, ['Male', 'Female'], true)) {
+                $skipped++;
+                $errors[] = "Row {$rowNumber}: gender must be Male or Female.";
+                continue;
+            }
+
+            $course = $courses->first(fn ($c) => strcasecmp((string) $c->course_name, $courseValue) === 0)
+                ?? $courses->first(fn ($c) => strcasecmp((string) $c->course_code, $courseValue) === 0)
+                ?? (ctype_digit($courseValue) ? $courses->firstWhere('id', (int) $courseValue) : null);
+
+            if (! $course) {
+                $skipped++;
+                $errors[] = "Row {$rowNumber}: course '{$courseValue}' was not found.";
+                continue;
+            }
+
+            $attributes = [
+                'student_code' => $studentCode,
+                'name' => $name,
+                'email' => $email,
+                'phone' => $phone !== '' ? $phone : null,
+                'gender' => $gender,
+                'course_id' => $course->id,
+            ];
+
+            try {
+                $student = LaravelStudent::where('student_code', $studentCode)->first();
+
+                if ($student) {
+                    $student->update($attributes);
+                    $updated++;
+                } else {
+                    LaravelStudent::create($attributes);
+                    $created++;
+                }
+            } catch (\Throwable $e) {
+                $skipped++;
+                $errors[] = "Row {$rowNumber}: email '{$email}' already belongs to another student.";
             }
         }
 
-        return redirect()->route('students.index')->with('success', 'CSV imported successfully.');
+        fclose($handle);
+
+        $message = "Import complete: {$created} created, {$updated} updated, {$skipped} skipped.";
+
+        return redirect()->route('students.index')
+            ->with($created + $updated > 0 ? 'success' : 'error', $message)
+            ->with('import_errors', array_slice($errors, 0, 10));
     }
 }
