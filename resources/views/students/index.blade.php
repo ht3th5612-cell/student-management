@@ -14,6 +14,35 @@
     </div>
 
     <div class="container mt-5">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <form method="GET" action="{{ route('students.index') }}">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <input type="text" name="search" placeholder="Search by name..."
+                                   value="{{ request('search') }}" class="form-control">
+                        </div>
+
+                        <div class="col-md-4">
+                            <select name="course" class="form-select">
+                                <option value="">All Courses</option>
+                                @foreach ($courses as $course)
+                                    <option value="{{ $course->id }}" @selected((string) request('course') === (string) $course->id)>
+                                        {{ $course->course_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary w-100">Search</button>
+                            <a href="{{ route('students.index') }}" class="btn btn-outline-secondary w-100">Reset</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <p> Total Student is {{ $count }}</p>
         
         <table class="table table-bordered table-striped">
@@ -29,7 +58,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($students as $student)
+                @forelse ($students as $student)
                     <tr>
                         <td>{{ $student->student_code }}</td>
                         <td>{{ $student->name }}</td>
@@ -46,7 +75,11 @@
                             </form>
                         </td>
                     </tr>
-                @endforeach
+                @empty
+                    <tr>
+                        <td colspan="7" class="text-center">No students found.</td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
 

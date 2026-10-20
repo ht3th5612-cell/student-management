@@ -1,14 +1,12 @@
 <header class="top-header">
-    <div class="brand">
-    Student Management System
-</div>
- <div class="header-links">
-    <a href="{{ route('students.index') }}" > Students </a>
-    <a href="{{ route('students.create') }}" > Add Student </a>
-    <a href="{{ route('courses.index') }}" > Courses </a>
-    <a href="{{ route('courses.create') }}" > Add Course </a>
-    <a href="{{ route('subjects.index') }}" > Subjects </a>
-    <a href="{{ route('subjects.create') }}" > Add Subject </a>
-    
- </div>
- </header>
+    <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <div class="header-title">@yield('title', 'Dashboard')</div>
+
+    <div class="header-user">
+        <span class="user-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}</span>
+        <span class="user-name">{{ auth()->user()->name ?? 'User' }}</span>
+    </div>
+</header>
