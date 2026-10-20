@@ -15,7 +15,7 @@ class subjectController extends Controller
      */
     public function index()
     {
-        $subjects = subject::with('courses')->orderBy('id', 'desc')->get();
+        $subjects = subject::with('courses')->orderBy('id', 'desc')->paginate(2);
         $count = $subjects->count();
 
         return view('subject.index', compact('subjects', 'count'));

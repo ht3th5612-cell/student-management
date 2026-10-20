@@ -15,6 +15,24 @@
     <div class="page-wrapper">
         @include('partials.sidebar')
         <main class="main-content">
+            @if (session('success'))
+                <div class="alert alert-success">{{ session('success') }}</div>
+            @endif
+
+            @if (session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+
+            @if (session('import_errors') && count(session('import_errors')))
+                <div class="alert alert-warning">
+                    <ul class="mb-0">
+                        @foreach (session('import_errors') as $importError)
+                            <li>{{ $importError }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @yield('content')
         </main>
         

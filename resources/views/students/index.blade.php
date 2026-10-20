@@ -2,15 +2,22 @@
 @section('title','Student List')
 @section('content')
 
-    <div class="container mt-5">
+    <div class="container mt-5 d-flex flex-wrap gap-2 align-items-start">
         <a href="{{ route('students.create') }}" class="btn btn-primary"> Add Student </a>
+        <a href="{{ route('students.export') }}" class="btn btn-success"> Export CSV </a>
+
+        <form action="{{ route('students.import') }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+            @csrf
+            <input type="file" name="csv_file" class="form-control" accept=".csv,text/csv" required>
+            <button type="submit" class="btn btn-warning text-nowrap"> Import CSV </button>
+        </form>
     </div>
 
     <div class="container mt-5">
         <p> Total Student is {{ $count }}</p>
         
         <table class="table table-bordered table-striped">
-            <thead class="table-dark"> <!-- calss အစား class ဟု ပြင်ဆင်ခြင်း -->
+            <thead class="table-dark">
                 <tr>
                     <th>Student Code</th>
                     <th>Name</th>
@@ -18,7 +25,7 @@
                     <th>Phone</th>
                     <th>Gender</th>
                     <th>Course</th>
-                    <th>Actions</th> <!-- Actions ကော်လံခေါင်းစဉ် -->
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,10 +47,12 @@
                         </td>
                     </tr>
                 @endforeach
-                <div class="mt-3">
-                    {{ $students->links() }}
-                </div>
             </tbody>
         </table>
+
+        <!-- Pagination Links ကို Table ၏ အပြင်ဘက် (အောက်နား) သို့ ရွှေ့ခြင်း -->
+        <div class="mt-3">
+            {{ $students->links() }}
+        </div>
     </div>
 @endsection
