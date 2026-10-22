@@ -23,10 +23,15 @@ class studentsController extends Controller
         if ($request->filled('course')) {
             $query->where('course_id', $request->input('course'));
         }
+        if ($request->filled('gender') && in_array($request->input('gender'), ['Male', 'Female'], true)) {
+            $query->where('gender', $request->input('gender'));
+        }
+
 
         $students = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
         $count = $students->total();
         $courses = Courses::orderBy('course_name')->get();
+        
 
         return view('students.index', compact('students', 'count', 'courses'));
     }

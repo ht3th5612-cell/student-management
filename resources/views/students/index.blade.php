@@ -18,12 +18,12 @@
             <div class="card-body">
                 <form method="GET" action="{{ route('students.index') }}">
                     <div class="row g-2">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <input type="text" name="search" placeholder="Search by name..."
                                    value="{{ request('search') }}" class="form-control">
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <select name="course" class="form-select">
                                 <option value="">All Courses</option>
                                 @foreach ($courses as $course)
@@ -31,6 +31,14 @@
                                         {{ $course->course_name }}
                                     </option>
                                 @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <select name="gender" class="form-select">
+                                <option value="">All Genders</option>
+                                <option value="Male" @selected(request('gender') === 'Male')>Male</option>
+                                <option value="Female" @selected(request('gender') === 'Female')>Female</option>
                             </select>
                         </div>
 

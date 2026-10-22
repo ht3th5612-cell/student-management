@@ -6,6 +6,12 @@ use App\Http\Controllers\coursesController;
 use App\Http\Controllers\subjectController;
 use App\Http\Controllers\AuthController;
 
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('students.index')
+        : redirect()->route('login');
+})->name('home');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('students/export', [studentsController::class, 'exportCSV'])->name('students.export');
     Route::post('students/import', [studentsController::class, 'importCSV'])->name('students.import');
